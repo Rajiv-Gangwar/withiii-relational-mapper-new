@@ -83,6 +83,10 @@ const MOCK_USERS: User[] = [
   { id: '6', name: 'Dwight Schrute', email: 'dwight@example.com', role: 'Individual User', department: 'Squarespace', departmentName: 'Engineering', title: 'Assistant Regional Manager', avatar: 'https://picsum.photos/seed/dwight/100' },
   { id: '7', name: 'Angela Martin', email: 'angela@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Finance', title: 'Head of Accounting', avatar: 'https://picsum.photos/seed/angela/100' },
   { id: '8', name: 'Kelly Kapoor', email: 'kelly@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Marketing', title: 'Customer Service Rep', avatar: 'https://picsum.photos/seed/kelly/100' },
+  { id: 'u1', name: 'Jane Snow', email: 'jane@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Marketing', title: 'Designer', avatar: 'https://picsum.photos/seed/jane/100' },
+  { id: 'u2', name: 'Klein Crate', email: 'klein@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Engineering', title: 'Developer', avatar: 'https://picsum.photos/seed/klein/100' },
+  { id: 'u3', name: 'Ryan Brown', email: 'ryan@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Product', title: 'Manager', avatar: 'https://picsum.photos/seed/ryan/100' },
+  { id: 'u4', name: 'Rsty Blake', email: 'rsty@example.com', role: 'Individual User', department: 'Actiknow', departmentName: 'Sales', title: 'Sales Rep', avatar: 'https://picsum.photos/seed/rsty/100' },
 ];
 
 const MOCK_MAPS: RelationalMap[] = [
@@ -92,12 +96,26 @@ const MOCK_MAPS: RelationalMap[] = [
   { id: 'm4', name: 'Marketing Strategy', type: 'Team', description: 'Strategy for Q2.', orgMapType: 'Team', mode: 'Online', deadline: '2024-06-01', participants: ['1', '4'], viewers: 8, includeIdeal: true, status: 'Active', createdAt: '2024-03-20', participationRate: 60, owner: 'Other User', coOwned: false, participated: true, shared: false },
   { id: 'm5', name: 'Product Roadmap', type: 'Organization', organizationName: 'Acme Corp', description: 'Product roadmap for 2024.', orgMapType: 'Department', mode: 'Offline', facilitatorName: 'John Doe', deadline: '2024-12-31', participants: ['1', '2', '3'], viewers: 20, includeIdeal: true, status: 'Active', createdAt: '2024-01-01', participationRate: 40, owner: 'Other User', coOwned: false, participated: false, shared: true },
   { id: 'm6', name: 'Past Project Review', type: 'Team', description: 'Review of the previous project.', orgMapType: 'Team', mode: 'Online', deadline: '2023-12-31', participants: ['1', '2', '3'], viewers: 10, includeIdeal: true, status: 'Completed', createdAt: '2023-11-01', participationRate: 100, owner: 'Other User', coOwned: false, participated: true, shared: false },
+  { id: 'm-demo', name: 'Team Relationship Matrix', type: 'Team', description: 'Detailed relational mapping overview for the core team.', orgMapType: 'Team', mode: 'Online', deadline: '2024-12-31', participants: ['u1', 'u2', 'u3', 'u4'], viewers: 25, includeIdeal: true, status: 'Active', createdAt: '2024-03-01', participationRate: 100, owner: 'Current User', coOwned: false, participated: true, shared: false },
 ];
 
 const MOCK_RELATIONSHIPS: Relationship[] = [
   { fromId: '5', toId: '4', current: 1, goal: 2, lastUpdated: '2024-03-10' },
   { fromId: '6', toId: '4', current: -1, goal: 2, lastUpdated: '2024-03-11' },
   { fromId: '5', toId: '6', current: 0, goal: 1, lastUpdated: '2024-03-12' },
+  // Screenshot replication data
+  { fromId: 'u1', toId: 'u2', current: -1, goal: 1, lastUpdated: '2024-03-10' },
+  { fromId: 'u1', toId: 'u3', current: 0, goal: 1, lastUpdated: '2024-03-10' },
+  { fromId: 'u1', toId: 'u4', current: 2, goal: 2, lastUpdated: '2024-03-10' },
+  { fromId: 'u2', toId: 'u1', current: -1, goal: 0, lastUpdated: '2024-03-10' },
+  { fromId: 'u2', toId: 'u3', current: 0, goal: 1, lastUpdated: '2024-03-10' },
+  { fromId: 'u2', toId: 'u4', current: 2, goal: 2, lastUpdated: '2024-03-10' },
+  { fromId: 'u3', toId: 'u1', current: 1, goal: 2, lastUpdated: '2024-03-10' },
+  { fromId: 'u3', toId: 'u2', current: 2, goal: 2, lastUpdated: '2024-03-10' },
+  { fromId: 'u3', toId: 'u4', current: 0, goal: 1, lastUpdated: '2024-03-10' },
+  { fromId: 'u4', toId: 'u1', current: -2, goal: 0, lastUpdated: '2024-03-10' },
+  { fromId: 'u4', toId: 'u2', current: 0, goal: 1, lastUpdated: '2024-03-10' },
+  { fromId: 'u4', toId: 'u3', current: 2, goal: 2, lastUpdated: '2024-03-10' },
 ];
 
 const ANALYTICS_DATA = [
@@ -670,6 +688,122 @@ const Dashboard = ({ onAction }: { onAction: (action: string) => void }) => {
   );
 };
 
+const RelationalMatrix = ({ participants, relationships }: { participants: User[], relationships: Relationship[] }) => {
+  const getRatingStyle = (rating: number) => {
+    switch (rating) {
+      case -2: return 'bg-[#D8504B] text-white';
+      case -1: return 'bg-[#E88985] text-white';
+      case 0: return 'bg-[#BDBDBD] text-white';
+      case 1: return 'bg-[#B2C6A3] text-white';
+      case 2: return 'bg-[#6A8A54] text-white';
+      default: return 'bg-gray-100 text-gray-400';
+    }
+  };
+
+  const getRelationship = (fromId: string, toId: string) => {
+    return relationships.find(r => r.fromId === fromId && r.toId === toId);
+  };
+
+  const calculateRowAvg = (fromId: string) => {
+    const ratings = participants
+      .filter(p => p.id !== fromId)
+      .map(p => getRelationship(fromId, p.id)?.current)
+      .filter((v): v is number => v !== undefined);
+    if (ratings.length === 0) return 0;
+    return ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  };
+
+  const calculateColAvg = (toId: string) => {
+    const ratings = participants
+      .filter(p => p.id !== toId)
+      .map(p => getRelationship(p.id, toId)?.current)
+      .filter((v): v is number => v !== undefined);
+    if (ratings.length === 0) return 0;
+    return ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  };
+
+  const totalAvg = (() => {
+    const allRelValues = relationships.filter(r => 
+      participants.some(p => p.id === r.fromId) && 
+      participants.some(p => p.id === r.toId) &&
+      r.fromId !== r.toId
+    ).map(r => r.current);
+    if (allRelValues.length === 0) return 0;
+    return allRelValues.reduce((a, b) => a + b, 0) / allRelValues.length;
+  })();
+
+  return (
+    <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" style={{ touchAction: 'none' }}>
+      <div className="overflow-x-auto" id="grid-capture">
+        <div className="min-w-max p-4">
+          <table className="min-w-full table-fixed border-separate border-spacing-0">
+            <colgroup>
+              <col className="w-28 md:w-32" />
+              {participants.map(p => (
+                <col key={p.id} className="w-16" />
+              ))}
+              <col className="w-24" />
+            </colgroup>
+            <thead className="bg-gray-50/50">
+              <tr>
+                <th scope="col" className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border-b border-gray-100"></th>
+                {participants.map(p => (
+                  <th key={p.id} className="p-2 text-center text-xs font-bold text-gray-500 capitalize tracking-wider align-middle whitespace-nowrap h-32 border-b border-gray-100" style={{ writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
+                    {p.name.toLowerCase()}
+                  </th>
+                ))}
+                <th scope="col" className="p-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider align-middle border-b border-gray-100">Avg. Given</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {participants.map((fromUser) => (
+                <tr key={fromUser.id} className="group hover:bg-gray-50/30 transition-colors">
+                  <td className="p-3 truncate text-sm font-bold text-gray-800 sticky left-0 bg-white z-10 border-r border-gray-100/50 group-hover:bg-gray-50 transition-colors max-w-[128px]">
+                    {fromUser.name.toLowerCase()}
+                  </td>
+                  {participants.map((toUser) => {
+                    const isSelf = fromUser.id === toUser.id;
+                    const rel = getRelationship(fromUser.id, toUser.id);
+                    return (
+                      <td key={toUser.id} className={cn("p-1.5 text-center align-middle border-r border-gray-50 last:border-r-0 transition-colors", isSelf && "bg-gray-100")}>
+                        {!isSelf && rel !== undefined && (
+                          <div className={cn("w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto shadow-sm", getRatingStyle(rel.current))}>
+                            {rel.current}
+                          </div>
+                        )}
+                        {!isSelf && rel === undefined && (
+                          <div className="w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto bg-gray-50 text-gray-300">
+                            -
+                          </div>
+                        )}
+                        {isSelf && <div className="w-12 h-12 mx-auto" />}
+                      </td>
+                    );
+                  })}
+                  <td className="p-3 whitespace-nowrap text-xl font-bold text-center text-gray-700 bg-gray-50/10">
+                    {calculateRowAvg(fromUser.id).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="bg-white">
+                <td className="p-3 whitespace-nowrap text-xs font-bold uppercase tracking-wider sticky left-0 bg-white z-10 border-t border-gray-200 flex items-center h-full">Avg. Received</td>
+                {participants.map(toUser => (
+                  <td key={toUser.id} className="p-3 text-center text-xl font-bold text-gray-700 border-t border-gray-200">
+                    {calculateColAvg(toUser.id).toFixed(2)}
+                  </td>
+                ))}
+                <td className="p-3 text-center text-xl font-extrabold text-primary border-t border-gray-200 border-l border-gray-100">
+                  {totalAvg.toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MapView = ({ map, onBack, onReRate }: { map: RelationalMap, onBack: () => void, onReRate?: (map: RelationalMap) => void }) => {
   const owner = MOCK_USERS.find(u => u.id === map.ownerId);
   const participants = MOCK_USERS.filter(u => map.participants.includes(u.id));
@@ -855,41 +989,7 @@ const MapView = ({ map, onBack, onReRate }: { map: RelationalMap, onBack: () => 
             <div className="lg:col-span-2 space-y-6">
               <div className="card p-6">
                 <h3 className="text-lg font-bold text-secondary mb-6">Ratings Overview</h3>
-                <div className="h-[300px] mb-8" role="img" aria-label="Scatter chart showing ratings overview. X-axis is current rating, Y-axis is target rating.">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="current" type="number" domain={[-2, 2]} ticks={[-2, -1, 0, 1, 2]} name="Current Rating" tick={{fontSize: 12, fill: '#6b7280'}} />
-                      <YAxis dataKey="target" type="number" domain={[-2, 2]} ticks={[-2, -1, 0, 1, 2]} name="Target Rating" tick={{fontSize: 12, fill: '#6b7280'}} />
-                      <ZAxis dataKey="name" type="category" name="Participant" />
-                      <Tooltip cursor={{strokeDasharray: '3 3'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                      <ReferenceLine x={0} stroke="#cbd5e1" />
-                      <ReferenceLine y={0} stroke="#cbd5e1" />
-                      <Scatter name="Ratings" data={orgRatingsData} fill="#300a73" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-600 uppercase bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 rounded-tl-lg">Participant</th>
-                        <th scope="col" className="px-4 py-3">Current Rating</th>
-                        <th scope="col" className="px-4 py-3 rounded-tr-lg">Target Rating</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orgRatingsData.map((data, index) => (
-                        <tr key={index} className="border-b border-gray-50 last:border-0">
-                          <th scope="row" className="px-4 py-3 font-medium text-secondary">{data.name}</th>
-                          <td className="px-4 py-3">{data.current}</td>
-                          <td className="px-4 py-3">{data.target}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <RelationalMatrix participants={participants} relationships={MOCK_RELATIONSHIPS} />
               </div>
 
               <div className="card p-6">
