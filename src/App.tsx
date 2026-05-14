@@ -3834,49 +3834,42 @@ const MapWizard = ({
         )}
 
         {step === (mapType === 'team-to-teams' ? 4 : 3) && (
-          <div className="space-y-6 w-full">
-            <h3 className="text-xl font-bold text-secondary">Step {mapType === 'team-to-teams' ? '4' : '3'}: {mapData.inputFirst === 'Goals' ? 'Goals' : 'Score'}</h3>
-            <p className="text-xs text-gray-600">Rate the {mapData.inputFirst === 'Goals' ? 'goal' : 'current'} state of your relationship with each person.</p>
-            
-            <div className="p-4 bg-primary-light rounded-xl">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-3">Scoring Guide:</p>
-              <div className="grid grid-cols-5 gap-2">
-                {scoringLabels.map(s => (
-                  <div key={s.value} className="text-center">
-                    <div className="text-xs font-bold text-secondary">{s.value}</div>
-                    <div className="text-[8px] font-bold text-primary uppercase">{s.label}</div>
-                    <div className="text-[8px] text-gray-600 leading-tight">{s.sub}</div>
-                  </div>
-                ))}
-              </div>
+          <div className="space-y-6 w-full animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-secondary">Step {mapType === 'team-to-teams' ? '4' : '3'}: {mapData.inputFirst === 'Goals' ? 'Goals' : 'Score'}</h3>
+              <p className="text-xs text-gray-600">Rate the {mapData.inputFirst === 'Goals' ? 'goal' : 'current'} state of your relationship with each person.</p>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[500px]">
+            
+            <div className="overflow-x-auto ring-1 ring-gray-100 rounded-2xl">
+              <table className="w-full min-w-[700px] border-separate border-spacing-0">
                 <thead>
-                  <tr className="text-left border-b border-gray-100">
-                    <th scope="col" className="pb-3 text-xs font-bold text-secondary">Relationship with</th>
+                  <tr className="bg-gray-50/50">
+                    <th scope="col" className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 sticky left-0 bg-white z-10">Relationship with</th>
                     {scoringLabels.map(s => (
-                      <th key={s.value} scope="col" className="pb-3 text-center px-1">
-                        <span className="sr-only">Score {s.value}: {s.label}</span>
+                      <th key={s.value} scope="col" className="p-4 text-center border-b border-gray-100 min-w-[100px]">
+                        <div className="space-y-1">
+                          <div className="text-xs font-bold text-secondary">{s.value}</div>
+                          <div className="text-[10px] font-bold text-primary uppercase">{s.label}</div>
+                          <div className="text-[9px] text-gray-500 font-normal leading-tight hidden md:block">{s.sub}</div>
+                        </div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {mapData.people.map(p => (
-                    <tr key={p.id}>
-                      <th scope="row" className="py-4 text-sm font-bold text-secondary text-left">{p.name}</th>
+                    <tr key={p.id} className="hover:bg-gray-50/30 transition-colors">
+                      <th scope="row" className="p-4 text-sm font-bold text-secondary text-left sticky left-0 bg-white z-10 border-r border-gray-50 group-hover:bg-gray-50 transition-colors">{p.name}</th>
                       {scoringLabels.map(s => (
-                        <td key={s.value} className="py-4 px-1 text-center">
+                        <td key={s.value} className="p-4 text-center">
                           <button 
                             type="button"
                             onClick={() => updateScore(p.id, mapData.inputFirst === 'Goals' ? 'target' : 'actual', s.value)}
                             className={cn(
-                              "w-8 h-8 rounded-lg border-2 transition-all text-xs font-bold focus-visible:ring-2 focus-visible:ring-primary outline-none",
+                              "w-10 h-10 rounded-xl border-2 transition-all text-sm font-bold focus-visible:ring-2 focus-visible:ring-primary outline-none mx-auto flex items-center justify-center",
                               (mapData.inputFirst === 'Goals' ? p.target : p.actual) === s.value 
-                                ? (mapData.inputFirst === 'Goals' ? "bg-accent border-accent text-white shadow-md shadow-accent/20" : "bg-primary border-primary text-white shadow-md shadow-primary/20")
-                                : "border-gray-100 hover:border-gray-200 text-gray-500"
+                                ? (mapData.inputFirst === 'Goals' ? "bg-accent border-accent text-white shadow-lg shadow-accent/20 scale-110" : "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110")
+                                : "border-gray-100 hover:border-gray-300 text-gray-400 hover:text-secondary"
                             )}
                             aria-label={`Rate relationship with ${p.name} as ${s.value} (${s.label})`}
                             aria-pressed={(mapData.inputFirst === 'Goals' ? p.target : p.actual) === s.value}
@@ -3894,49 +3887,42 @@ const MapWizard = ({
         )}
 
         {step === (mapType === 'team-to-teams' ? 5 : 4) && (
-          <div className="space-y-6 w-full">
-            <h3 className="text-xl font-bold text-secondary">Step {mapType === 'team-to-teams' ? '5' : '4'}: {mapData.inputFirst === 'Goals' ? 'Score' : 'Goals'}</h3>
-            <p className="text-xs text-gray-600">Rate the {mapData.inputFirst === 'Goals' ? 'current' : 'goal'} state you would like to reach with each person.</p>
-            
-            <div className="p-4 bg-primary-light rounded-xl">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-3">Scoring Guide:</p>
-              <div className="grid grid-cols-5 gap-2">
-                {scoringLabels.map(s => (
-                  <div key={s.value} className="text-center">
-                    <div className="text-xs font-bold text-secondary">{s.value}</div>
-                    <div className="text-[8px] font-bold text-primary uppercase">{s.label}</div>
-                    <div className="text-[8px] text-gray-600 leading-tight">{s.sub}</div>
-                  </div>
-                ))}
-              </div>
+          <div className="space-y-6 w-full animate-in fade-in slide-in-from-right-4">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-secondary">Step {mapType === 'team-to-teams' ? '5' : '4'}: {mapData.inputFirst === 'Goals' ? 'Score' : 'Goals'}</h3>
+              <p className="text-xs text-gray-600">Rate the {mapData.inputFirst === 'Goals' ? 'current' : 'goal'} state you would like to reach with each person.</p>
             </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            
+            <div className="overflow-x-auto ring-1 ring-gray-100 rounded-2xl">
+              <table className="w-full min-w-[700px] border-separate border-spacing-0">
                 <thead>
-                  <tr className="text-left border-b border-gray-100">
-                    <th scope="col" className="pb-3 text-xs font-bold text-secondary">Relationship with</th>
+                  <tr className="bg-gray-50/50">
+                    <th scope="col" className="p-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 sticky left-0 bg-white z-10">Relationship with</th>
                     {scoringLabels.map(s => (
-                      <th key={s.value} scope="col" className="pb-3 text-center px-1">
-                        <span className="sr-only">Score {s.value}: {s.label}</span>
+                      <th key={s.value} scope="col" className="p-4 text-center border-b border-gray-100 min-w-[100px]">
+                        <div className="space-y-1">
+                          <div className="text-xs font-bold text-secondary">{s.value}</div>
+                          <div className="text-[10px] font-bold text-primary uppercase">{s.label}</div>
+                          <div className="text-[9px] text-gray-500 font-normal leading-tight hidden md:block">{s.sub}</div>
+                        </div>
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {mapData.people.map(p => (
-                    <tr key={p.id}>
-                      <th scope="row" className="py-4 text-sm font-bold text-secondary text-left">{p.name}</th>
+                    <tr key={p.id} className="hover:bg-gray-50/30 transition-colors">
+                      <th scope="row" className="p-4 text-sm font-bold text-secondary text-left sticky left-0 bg-white z-10 border-r border-gray-50 group-hover:bg-gray-50 transition-colors">{p.name}</th>
                       {scoringLabels.map(s => (
-                        <td key={s.value} className="py-4 px-1 text-center">
+                        <td key={s.value} className="p-4 text-center">
                           <button 
                             type="button"
                             onClick={() => updateScore(p.id, mapData.inputFirst === 'Goals' ? 'actual' : 'target', s.value)}
                             className={cn(
-                              "w-8 h-8 rounded-lg border-2 transition-all text-xs font-bold focus-visible:ring-2 focus-visible:ring-primary outline-none",
+                              "w-10 h-10 rounded-xl border-2 transition-all text-sm font-bold focus-visible:ring-2 focus-visible:ring-primary outline-none mx-auto flex items-center justify-center",
                               (mapData.inputFirst === 'Goals' ? p.actual : p.target) === s.value 
-                                ? (mapData.inputFirst === 'Goals' ? "bg-primary border-primary text-white shadow-md shadow-primary/20" : "bg-accent border-accent text-white shadow-md shadow-accent/20")
-                                : "border-gray-100 hover:border-gray-200 text-gray-500"
+                                ? (mapData.inputFirst === 'Goals' ? "bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-110" : "bg-accent border-accent text-white shadow-lg shadow-accent/20 scale-110")
+                                : "border-gray-100 hover:border-gray-300 text-gray-400 hover:text-secondary"
                             )}
                             aria-label={`Rate goal for ${p.name} as ${s.value} (${s.label})`}
                             aria-pressed={(mapData.inputFirst === 'Goals' ? p.actual : p.target) === s.value}
@@ -4012,31 +3998,39 @@ const MapWizard = ({
               </motion.div>
             )}
 
-            <div className="card overflow-hidden p-0">
+            <div className="card overflow-hidden p-0 border border-gray-100 rounded-2xl shadow-sm">
               <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[400px]">
+                <table className="w-full text-left min-w-[500px] border-separate border-spacing-0">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
-                      <th scope="col" className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase">Relationship with</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase text-center">Last Rating</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase text-center">Current</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase text-center">Goal</th>
-                      <th scope="col" className="px-4 py-3 text-[10px] font-bold text-gray-600 uppercase text-center">Gap</th>
+                    <tr className="bg-gray-50/80 border-b border-gray-100">
+                      <th scope="col" className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider border-b border-gray-100">Relationship with</th>
+                      <th scope="col" className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center border-b border-gray-100">Last Rating</th>
+                      <th scope="col" className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center border-b border-gray-100">Current</th>
+                      <th scope="col" className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center border-b border-gray-100">Goal</th>
+                      <th scope="col" className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center border-b border-gray-100">Gap</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 text-xs">
+                  <tbody className="divide-y divide-gray-50 text-sm">
                     {mapData.people.map(p => {
                       const gap = (p.target ?? 0) - (p.actual ?? 0);
                       return (
-                        <tr key={p.id}>
-                          <th scope="row" className="px-4 py-3 font-bold text-secondary text-left">{p.name}</th>
-                          <td className="px-4 py-3 text-center text-gray-500 italic">{p.lastActual ?? 'N/A'}</td>
-                          <td className="px-4 py-3 text-center font-bold text-primary">{p.actual ?? '-'}</td>
-                          <td className="px-4 py-3 text-center font-bold text-accent">{p.target ?? '-'}</td>
-                          <td className="px-4 py-3 text-center">
+                        <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
+                          <th scope="row" className="px-6 py-4 font-bold text-secondary text-left">{p.name}</th>
+                          <td className="px-6 py-4 text-center text-gray-400 italic font-medium">{p.lastActual ?? '-'}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary/5 text-primary font-bold border border-primary/10">
+                              {p.actual ?? '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-accent/5 text-accent font-bold border border-accent/10">
+                              {p.target ?? '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
                             <span className={cn(
-                              "px-2 py-0.5 rounded font-bold",
-                              gap > 0 ? "bg-green-50 text-green-600" : gap < 0 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500"
+                              "inline-flex items-center justify-center min-w-[40px] px-2 py-1 rounded-full text-[11px] font-bold",
+                              gap > 0 ? "bg-green-100 text-green-700" : gap < 0 ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"
                             )}>
                               {gap > 0 ? `+${gap}` : gap}
                             </span>
