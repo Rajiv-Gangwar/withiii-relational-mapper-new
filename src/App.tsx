@@ -689,6 +689,15 @@ const Dashboard = ({ onAction }: { onAction: (action: string) => void }) => {
 };
 
 const RelationalMatrix = ({ participants, relationships }: { participants: User[], relationships: Relationship[] }) => {
+  const [viewMode, setViewMode] = useState<'scores' | 'goals'>('scores');
+  const [selectedVersion, setSelectedVersion] = useState<'current' | 'ver 2' | 'ver 1'>('current');
+  const [selectedCell, setSelectedCell] = useState<{
+    from: User;
+    to: User;
+    score: number;
+    goal: number;
+  } | null>(null);
+
   const getRatingStyle = (rating: number) => {
     switch (rating) {
       case -2: return 'bg-[#D8504B] text-white';
@@ -704,10 +713,45 @@ const RelationalMatrix = ({ participants, relationships }: { participants: User[
     return relationships.find(r => r.fromId === fromId && r.toId === toId);
   };
 
+  const getRatingValue = (fromId: string, toId: string) => {
+    const rel = getRelationship(fromId, toId);
+    if (!rel) return undefined;
+
+    let baseCurrent = rel.current;
+    let baseGoal = rel.goal;
+
+    if (selectedVersion === 'ver 2') {
+      baseCurrent = Math.max(-2, Math.min(2, rel.current - 1));
+      baseGoal = Math.max(-2, Math.min(2, rel.goal - (rel.goal > 0 ? 1 : 0)));
+    } else if (selectedVersion === 'ver 1') {
+      baseCurrent = Math.max(-2, Math.min(2, rel.current + 1));
+      baseGoal = Math.max(-2, Math.min(2, rel.goal + (rel.goal < 2 ? 1 : 0)));
+    }
+
+    return viewMode === 'scores' ? baseCurrent : baseGoal;
+  };
+
+  const generateTrendData = (from: User, to: User, currentVal: number, goalVal: number) => {
+    const seed = (from.id.charCodeAt(0) + to.id.charCodeAt(0)) % 5;
+    const score1 = Math.max(-2, Math.min(2, Math.round(currentVal * 0.4 + (seed - 2) * 0.5)));
+    const score2 = Math.max(-2, Math.min(2, Math.round(currentVal * 0.7 + (seed - 2) * 0.2)));
+    const score3 = currentVal;
+
+    const goal1 = Math.max(-2, Math.min(2, Math.round(goalVal * 0.6 + seed * 0.2)));
+    const goal2 = Math.max(-2, Math.min(2, Math.round(goalVal * 0.9)));
+    const goal3 = goalVal;
+
+    return [
+      { date: 'Jan 15', version: 'Ver 1', score: score1, goal: goal1 },
+      { date: 'Apr 10', version: 'Ver 2', score: score2, goal: goal2 },
+      { date: 'Jun 10', version: 'Current', score: score3, goal: goal3 },
+    ];
+  };
+
   const calculateRowAvg = (fromId: string) => {
     const ratings = participants
       .filter(p => p.id !== fromId)
-      .map(p => getRelationship(fromId, p.id)?.current)
+      .map(p => getRatingValue(fromId, p.id))
       .filter((v): v is number => v !== undefined);
     if (ratings.length === 0) return 0;
     return ratings.reduce((a, b) => a + b, 0) / ratings.length;
@@ -716,90 +760,294 @@ const RelationalMatrix = ({ participants, relationships }: { participants: User[
   const calculateColAvg = (toId: string) => {
     const ratings = participants
       .filter(p => p.id !== toId)
-      .map(p => getRelationship(p.id, toId)?.current)
+      .map(p => getRatingValue(p.id, toId))
       .filter((v): v is number => v !== undefined);
     if (ratings.length === 0) return 0;
     return ratings.reduce((a, b) => a + b, 0) / ratings.length;
   };
 
   const totalAvg = (() => {
-    const allRelValues = relationships.filter(r => 
-      participants.some(p => p.id === r.fromId) && 
-      participants.some(p => p.id === r.toId) &&
-      r.fromId !== r.toId
-    ).map(r => r.current);
+    const allRelValues = [];
+    for (const fromUser of participants) {
+      for (const toUser of participants) {
+        if (fromUser.id !== toUser.id) {
+          const val = getRatingValue(fromUser.id, toUser.id);
+          if (val !== undefined) {
+            allRelValues.push(val);
+          }
+        }
+      }
+    }
     if (allRelValues.length === 0) return 0;
     return allRelValues.reduce((a, b) => a + b, 0) / allRelValues.length;
   })();
 
   return (
-    <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" style={{ touchAction: 'none' }}>
-      <div className="overflow-x-auto" id="grid-capture">
-        <div className="min-w-max p-4">
-          <table className="min-w-full table-fixed border-separate border-spacing-0">
-            <colgroup>
-              <col className="w-28 md:w-32" />
-              {participants.map(p => (
-                <col key={p.id} className="w-16" />
-              ))}
-              <col className="w-24" />
-            </colgroup>
-            <thead className="bg-gray-50/50">
-              <tr>
-                <th scope="col" className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border-b border-gray-100"></th>
-                {participants.map(p => (
-                  <th key={p.id} className="p-2 text-center text-xs font-bold text-gray-500 capitalize tracking-wider align-middle whitespace-nowrap h-32 border-b border-gray-100" style={{ writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
-                    {p.name.toLowerCase()}
-                  </th>
-                ))}
-                <th scope="col" className="p-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider align-middle border-b border-gray-100">Avg. Given</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {participants.map((fromUser) => (
-                <tr key={fromUser.id} className="group hover:bg-gray-50/30 transition-colors">
-                  <td className="p-3 truncate text-sm font-bold text-gray-800 sticky left-0 bg-white z-10 border-r border-gray-100/50 group-hover:bg-gray-50 transition-colors max-w-[128px]">
-                    {fromUser.name.toLowerCase()}
-                  </td>
-                  {participants.map((toUser) => {
-                    const isSelf = fromUser.id === toUser.id;
-                    const rel = getRelationship(fromUser.id, toUser.id);
-                    return (
-                      <td key={toUser.id} className={cn("p-1.5 text-center align-middle border-r border-gray-50 last:border-r-0 transition-colors", isSelf && "bg-gray-100")}>
-                        {!isSelf && rel !== undefined && (
-                          <div className={cn("w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto shadow-sm", getRatingStyle(rel.current))}>
-                            {rel.current}
-                          </div>
-                        )}
-                        {!isSelf && rel === undefined && (
-                          <div className="w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto bg-gray-50 text-gray-300">
-                            -
-                          </div>
-                        )}
-                        {isSelf && <div className="w-12 h-12 mx-auto" />}
-                      </td>
-                    );
-                  })}
-                  <td className="p-3 whitespace-nowrap text-xl font-bold text-center text-gray-700 bg-gray-50/10">
-                    {calculateRowAvg(fromUser.id).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-              <tr className="bg-white">
-                <td className="p-3 whitespace-nowrap text-xs font-bold uppercase tracking-wider sticky left-0 bg-white z-10 border-t border-gray-200 flex items-center h-full">Avg. Received</td>
-                {participants.map(toUser => (
-                  <td key={toUser.id} className="p-3 text-center text-xl font-bold text-gray-700 border-t border-gray-200">
-                    {calculateColAvg(toUser.id).toFixed(2)}
-                  </td>
-                ))}
-                <td className="p-3 text-center text-xl font-extrabold text-primary border-t border-gray-200 border-l border-gray-100">
-                  {totalAvg.toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+    <div className="space-y-6">
+      {/* Search & Filter Header (User Requested Styling) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-bold text-indigo-950 font-sans">Ratings Overview</h2>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Latest Data</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex p-1 bg-gray-100 rounded-lg shrink-0">
+            <select 
+              className="bg-transparent text-xs font-bold text-indigo-950 outline-none px-2 py-1 cursor-pointer" 
+              value={selectedVersion}
+              onChange={(e) => setSelectedVersion(e.target.value as any)}
+            >
+              <option value="current" className="cursor-pointer text-indigo-950">Current Version</option>
+              <option value="ver 2" className="cursor-pointer text-indigo-950">Ver 2</option>
+              <option value="ver 1" className="cursor-pointer text-indigo-950">Ver 1</option>
+            </select>
+          </div>
+          <div className="flex p-1 bg-gray-100 rounded-lg shrink-0">
+            <button 
+              type="button"
+              onClick={() => setViewMode('scores')}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                viewMode === 'scores' 
+                  ? "bg-white text-indigo-950 shadow-sm" 
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              Scores
+            </button>
+            <button 
+              type="button"
+              onClick={() => setViewMode('goals')}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                viewMode === 'goals' 
+                  ? "bg-white text-indigo-950 shadow-sm" 
+                  : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              Goals
+            </button>
+          </div>
         </div>
       </div>
+
+      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm" style={{ touchAction: 'none' }}>
+        <div className="overflow-x-auto" id="grid-capture">
+          <div className="min-w-max p-4">
+            <table className="min-w-full table-fixed border-separate border-spacing-0">
+              <colgroup>
+                <col className="w-28 md:w-32" />
+                {participants.map(p => (
+                  <col key={p.id} className="w-16" />
+                ))}
+                <col className="w-24" />
+              </colgroup>
+              <thead className="bg-gray-50/50">
+                <tr>
+                  <th scope="col" className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border-b border-gray-100"></th>
+                  {participants.map(p => (
+                    <th key={p.id} className="p-2 text-center text-xs font-bold text-gray-500 capitalize tracking-wider align-middle whitespace-nowrap h-32 border-b border-gray-100" style={{ writingMode: 'vertical-lr', textOrientation: 'mixed' }}>
+                      {p.name.toLowerCase()}
+                    </th>
+                  ))}
+                  <th scope="col" className="p-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider align-middle border-b border-gray-100">Avg. Given</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {participants.map((fromUser) => (
+                  <tr key={fromUser.id} className="group hover:bg-gray-50/30 transition-colors">
+                    <td className="p-3 truncate text-sm font-bold text-gray-800 sticky left-0 bg-white z-10 border-r border-gray-100/50 group-hover:bg-gray-50 transition-colors max-w-[128px]">
+                      {fromUser.name.toLowerCase()}
+                    </td>
+                    {participants.map((toUser) => {
+                      const isSelf = fromUser.id === toUser.id;
+                      const ratingVal = isSelf ? undefined : getRatingValue(fromUser.id, toUser.id);
+                      const rel = getRelationship(fromUser.id, toUser.id);
+                      const currentVal = rel ? rel.current : 0;
+                      const goalVal = rel ? rel.goal : 1;
+
+                      return (
+                        <td key={toUser.id} className={cn("p-1.5 text-center align-middle border-r border-gray-50 last:border-r-0 transition-colors", isSelf && "bg-gray-100")}>
+                          {!isSelf && ratingVal !== undefined && (
+                            <div 
+                              onClick={() => setSelectedCell({ from: fromUser, to: toUser, score: currentVal, goal: goalVal })}
+                              className={cn(
+                                "w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto shadow-sm cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95", 
+                                getRatingStyle(ratingVal)
+                              )}
+                            >
+                              {ratingVal}
+                            </div>
+                          )}
+                          {!isSelf && ratingVal === undefined && (
+                            <div 
+                              onClick={() => setSelectedCell({ from: fromUser, to: toUser, score: currentVal, goal: goalVal })}
+                              className="w-12 h-12 flex items-center justify-center text-xl font-bold rounded-md mx-auto bg-gray-50 text-gray-300 cursor-pointer transition-transform duration-100 hover:scale-105 active:scale-95"
+                            >
+                              -
+                            </div>
+                          )}
+                          {isSelf && <div className="w-12 h-12 mx-auto" />}
+                        </td>
+                      );
+                    })}
+                    <td className="p-3 whitespace-nowrap text-xl font-bold text-center text-gray-700 bg-gray-50/10">
+                      {calculateRowAvg(fromUser.id).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-white">
+                  <td className="p-3 whitespace-nowrap text-xs font-bold uppercase tracking-wider sticky left-0 bg-white z-10 border-t border-gray-200 flex items-center h-full">Avg. Received</td>
+                  {participants.map(toUser => (
+                    <td key={toUser.id} className="p-3 text-center text-xl font-bold text-gray-700 border-t border-gray-200">
+                      {calculateColAvg(toUser.id).toFixed(2)}
+                    </td>
+                  ))}
+                  <td className="p-3 text-center text-xl font-extrabold text-primary border-t border-gray-200 border-l border-gray-100 block-center">
+                    {totalAvg.toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedCell && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedCell(null)}
+              className="absolute inset-0 bg-indigo-950/20 backdrop-blur-sm cursor-pointer"
+            />
+            
+            {/* Modal */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-xl overflow-hidden z-10"
+            >
+              <div className="p-6 border-b border-gray-50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-indigo-950 font-sans">Relationship Evolution</h3>
+                  <p className="text-xs text-gray-500 font-medium">
+                    {selectedCell.from.name} → {selectedCell.to.name}
+                  </p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedCell(null)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              
+              <div className="p-8">
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={generateTrendData(selectedCell.from, selectedCell.to, selectedCell.score, selectedCell.goal)} margin={{ bottom: 40, left: 10, right: 10, top: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        dy={10}
+                        tick={(props: any) => {
+                          const { x, y, payload } = props;
+                          const dData = generateTrendData(selectedCell.from, selectedCell.to, selectedCell.score, selectedCell.goal);
+                          const item = dData[payload.index];
+                          if (!item) return null;
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <text x={0} y={0} dy={16} textAnchor="middle" fill="#94a3b8" fontSize={11} fontWeight={600}>
+                                {item.date}
+                              </text>
+                              <text x={0} y={0} dy={32} textAnchor="middle" fill="#cbd5e1" fontSize={10} fontWeight={500}>
+                                ({item.version})
+                              </text>
+                            </g>
+                          );
+                        }}
+                      />
+                      <YAxis 
+                        domain={[-2, 2]} 
+                        ticks={[-2, -1, 0, 1, 2]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
+                        dx={-10}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px',
+                          fontWeight: 'bold'
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="score" 
+                        name="Score"
+                        stroke="#4f46e5" 
+                        strokeWidth={3} 
+                        dot={{ fill: '#4f46e5', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="goal" 
+                        name="Goal"
+                        stroke="#94a3b8" 
+                        strokeWidth={2} 
+                        strokeDasharray="5 5"
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Legend */}
+                <div className="mt-4 flex justify-center gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-0.5 bg-[#4f46e5]" />
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Actual Score</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-0.5 bg-gray-400 border-t border-dashed border-gray-400" />
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Goal</span>
+                  </div>
+                </div>
+                
+                <div className="mt-8 grid grid-cols-5 gap-2">
+                  {[-2, -1, 0, 1, 2].map((val) => {
+                    return (
+                      <div key={val} className="text-center">
+                        <div className={`text-[10px] font-bold mb-1 ${val < 0 ? 'text-rose-500' : val > 0 ? 'text-emerald-500' : 'text-gray-400'}`}>
+                          {val}
+                        </div>
+                        <div className={`h-1.5 rounded-full ${val === selectedCell.score ? 'bg-blue-600 shadow-sm' : 'bg-gray-100'}`} />
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <p className="mt-6 text-[11px] text-gray-500 text-center font-medium leading-relaxed italic font-sans">
+                  This chart shows how the relationship score has trended.
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -988,7 +1236,6 @@ const MapView = ({ map, onBack, onReRate }: { map: RelationalMap, onBack: () => 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               <div className="card p-6">
-                <h3 className="text-lg font-bold text-secondary mb-6">Ratings Overview</h3>
                 <RelationalMatrix participants={participants} relationships={MOCK_RELATIONSHIPS} />
               </div>
 
@@ -1369,8 +1616,8 @@ const OrganizationsScreen = ({ initialShowAdd = false }: { initialShowAdd?: bool
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:max-w-md">
           <div className="relative flex-1">
             <label htmlFor="org-search" className="sr-only">Search organizations</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
@@ -1378,7 +1625,7 @@ const OrganizationsScreen = ({ initialShowAdd = false }: { initialShowAdd?: bool
           </div>
           <button type="button" className="btn-outline flex items-center gap-2 py-1.5 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filter</button>
         </div>
-        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Organization</button>
+        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none self-start sm:self-auto"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Organization</button>
       </div>
 
       <AnimatePresence>
@@ -1531,7 +1778,7 @@ const OrganizationsScreen = ({ initialShowAdd = false }: { initialShowAdd?: bool
                         Role Permissions Configuration
                       </h4>
                       <p className="text-xs text-gray-500">Define what each role within this organization can see and do.</p>
-                      <div className="border border-gray-100 rounded-xl overflow-hidden">
+                      <div className="border border-gray-100 rounded-xl overflow-x-auto">
                         <table className="w-full text-left">
                           <thead>
                             <tr className="bg-gray-50 border-b border-gray-100">
@@ -1699,8 +1946,8 @@ const FacilitatorsScreen = ({ initialShowAdd = false }: { initialShowAdd?: boole
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:max-w-md">
           <div className="relative flex-1">
             <label htmlFor="facilitator-search" className="sr-only">Search facilitators</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
@@ -1708,7 +1955,7 @@ const FacilitatorsScreen = ({ initialShowAdd = false }: { initialShowAdd?: boole
           </div>
           <button type="button" className="btn-outline flex items-center gap-2 py-1.5 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filter</button>
         </div>
-        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Facilitator</button>
+        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none self-start sm:self-auto"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Facilitator</button>
       </div>
 
       <AnimatePresence>
@@ -1857,8 +2104,8 @@ const SubHostsScreen = ({ initialShowAdd = false }: { initialShowAdd?: boolean }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:max-w-md">
           <div className="relative flex-1">
             <label htmlFor="subhost-search" className="sr-only">Search sub hosts</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
@@ -1866,7 +2113,7 @@ const SubHostsScreen = ({ initialShowAdd = false }: { initialShowAdd?: boolean }
           </div>
           <button type="button" className="btn-outline flex items-center gap-2 py-1.5 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filter</button>
         </div>
-        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Sub Host</button>
+        <button type="button" onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none self-start sm:self-auto"><Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add Sub Host</button>
       </div>
 
       <AnimatePresence>
@@ -2031,8 +2278,8 @@ const UsersScreen = ({ initialShowAdd = false }: { initialShowAdd?: boolean }) =
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full sm:max-w-md">
           <div className="relative flex-1">
             <label htmlFor="user-search" className="sr-only">Search users</label>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
@@ -2046,7 +2293,7 @@ const UsersScreen = ({ initialShowAdd = false }: { initialShowAdd?: boolean }) =
             setShowAddUser(true);
             setIsAddingNewDept(false);
           }}
-          className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none"
+          className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none self-start sm:self-auto"
         >
           <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Add User
         </button>
@@ -2316,8 +2563,8 @@ const NetworkGraph = ({ data }: { data: { nodes: any[], links: any[] } }) => {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = svgRef.current.clientWidth || 800;
-    const height = 400;
+    const width = 800;
+    const height = 450;
 
     const simulation = d3.forceSimulation(data.nodes)
       .force("link", d3.forceLink(data.links).id((d: any) => d.id).distance(120))
@@ -2428,7 +2675,15 @@ const NetworkGraph = ({ data }: { data: { nodes: any[], links: any[] } }) => {
 
   return (
     <div className="relative w-full h-[400px] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-inner">
-      <svg ref={svgRef} className="w-full h-full" role="img" aria-label="Network graph showing relationships between team members. Nodes represent participants, and lines represent relationship scores." />
+      <svg 
+        ref={svgRef} 
+        viewBox="0 0 800 450"
+        width="100%"
+        height="100%"
+        className="w-full h-full" 
+        role="img" 
+        aria-label="Network graph showing relationships between team members. Nodes represent participants, and lines represent relationship scores." 
+      />
       <div className="absolute bottom-4 left-4 flex gap-4" aria-label="Legend">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-[#300a73]"></div>
@@ -4451,9 +4706,10 @@ const MapVisualization = () => {
       <div className="card bg-gray-50/50 overflow-hidden relative p-0">
         <svg 
           ref={svgRef} 
+          viewBox="0 0 800 400"
           width="100%" 
-          height="400" 
-          className="cursor-move" 
+          height="100%" 
+          className="cursor-move min-h-[300px] md:min-h-[400px]" 
           role="img" 
           aria-label={`Network graph showing ${viewMode} relationship states between team members.`}
         />
@@ -4619,65 +4875,67 @@ const AnalyticsScreen = () => (
 
 const UserManagement = () => (
   <div className="card overflow-hidden p-0">
-    <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/30">
-      <div className="flex items-center gap-4">
-        <div className="relative">
+    <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/30">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:max-w-md">
+        <div className="relative flex-1">
           <label htmlFor="user-filter" className="sr-only">Filter users</label>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" aria-hidden="true" />
-          <input id="user-filter" type="text" placeholder="Filter users..." className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm w-64 focus-visible:ring-2 focus-visible:ring-primary outline-none" />
+          <input id="user-filter" type="text" placeholder="Filter users..." className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm w-full focus-visible:ring-2 focus-visible:ring-primary outline-none" />
         </div>
-        <button type="button" className="btn-secondary flex items-center gap-2 text-sm focus-visible:ring-2 focus-visible:ring-primary outline-none">
+        <button type="button" className="btn-secondary flex items-center justify-center gap-2 text-sm focus-visible:ring-2 focus-visible:ring-primary outline-none">
           <Filter className="w-4 h-4" aria-hidden="true" /> Role
         </button>
       </div>
-      <button type="button" className="btn-primary flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none">
+      <button type="button" className="btn-primary flex items-center justify-center gap-2 focus-visible:ring-2 focus-visible:ring-primary outline-none self-start sm:self-auto">
         <Plus className="w-4 h-4" aria-hidden="true" /> Add User
       </button>
     </div>
-    <table className="w-full text-left">
-      <thead>
-        <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100">
-          <th scope="col" className="px-6 py-4">User</th>
-          <th scope="col" className="px-6 py-4">Title</th>
-          <th scope="col" className="px-6 py-4">Role</th>
-          <th scope="col" className="px-6 py-4">Department</th>
-          <th scope="col" className="px-6 py-4">Organization</th>
-          <th scope="col" className="px-6 py-4">Status</th>
-          <th scope="col" className="px-6 py-4"><span className="sr-only">Actions</span></th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
-        {MOCK_USERS.map((user) => (
-          <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
-            <th scope="row" className="px-6 py-4 font-normal">
-              <div className="flex items-center gap-3">
-                <img src={user.avatar} className="w-10 h-10 rounded-full" alt={`${user.name}'s avatar`} referrerPolicy="no-referrer" />
-                <div>
-                  <p className="font-semibold text-sm text-secondary">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
-                </div>
-              </div>
-            </th>
-            <td className="px-6 py-4 text-sm text-gray-600">{user.title || '-'}</td>
-            <td className="px-6 py-4">
-              <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-600">{user.role}</span>
-            </td>
-            <td className="px-6 py-4 text-sm text-gray-600">{user.departmentName || '-'}</td>
-            <td className="px-6 py-4 text-sm text-gray-600">{user.department}</td>
-            <td className="px-6 py-4">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-600" aria-hidden="true"></div> Active
-              </span>
-            </td>
-            <td className="px-6 py-4 text-right">
-              <button type="button" className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-primary outline-none" aria-label={`More actions for ${user.name}`}>
-                <MoreVertical className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100">
+            <th scope="col" className="px-6 py-4">User</th>
+            <th scope="col" className="px-6 py-4">Title</th>
+            <th scope="col" className="px-6 py-4">Role</th>
+            <th scope="col" className="px-6 py-4">Department</th>
+            <th scope="col" className="px-6 py-4">Organization</th>
+            <th scope="col" className="px-6 py-4">Status</th>
+            <th scope="col" className="px-6 py-4"><span className="sr-only">Actions</span></th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {MOCK_USERS.map((user) => (
+            <tr key={user.id} className="hover:bg-gray-50 transition-colors group">
+              <th scope="row" className="px-6 py-4 font-normal">
+                <div className="flex items-center gap-3">
+                  <img src={user.avatar} className="w-10 h-10 rounded-full" alt={`${user.name}'s avatar`} referrerPolicy="no-referrer" />
+                  <div>
+                    <p className="font-semibold text-sm text-secondary">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                  </div>
+                </div>
+              </th>
+              <td className="px-6 py-4 text-sm text-gray-600">{user.title || '-'}</td>
+              <td className="px-6 py-4">
+                <span className="px-2 py-1 bg-gray-100 rounded-md text-xs font-medium text-gray-600">{user.role}</span>
+              </td>
+              <td className="px-6 py-4 text-sm text-gray-600">{user.departmentName || '-'}</td>
+              <td className="px-6 py-4 text-sm text-gray-600">{user.department}</td>
+              <td className="px-6 py-4">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-600" aria-hidden="true"></div> Active
+                </span>
+              </td>
+              <td className="px-6 py-4 text-right">
+                <button type="button" className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-primary outline-none" aria-label={`More actions for ${user.name}`}>
+                  <MoreVertical className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 );
 
@@ -5021,48 +5279,50 @@ const ParticipationTracker = () => (
     </div>
 
     <div className="card overflow-hidden p-0">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
-            <th scope="col" className="px-3 py-2">Participant</th>
-            <th scope="col" className="px-3 py-2">Status</th>
-            <th scope="col" className="px-3 py-2">Last Activity</th>
-            <th scope="col" className="px-3 py-2">Progress</th>
-            <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 text-[10px]">
-          {[
-            { name: 'Jim Halpert', status: 'Completed', date: 'Mar 12, 2024', progress: 100 },
-            { name: 'Dwight Schrute', status: 'Pending', date: 'Mar 10, 2024', progress: 45 },
-            { name: 'Pam Beesly', status: 'Completed', date: 'Mar 11, 2024', progress: 100 },
-          ].map((p, i) => (
-            <tr key={i} className="hover:bg-gray-50 transition-colors">
-              <th scope="row" className="px-3 py-2 font-bold text-secondary text-left">{p.name}</th>
-              <td className="px-3 py-2">
-                <span className={cn(
-                  "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
-                  p.status === 'Completed' ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
-                )}>{p.status}</span>
-              </td>
-              <td className="px-3 py-2 text-gray-500">{p.date}</td>
-              <td className="px-3 py-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={p.progress} aria-valuemin={0} aria-valuemax={100} aria-label={`${p.name}'s progress`}>
-                    <div className="h-full bg-primary" style={{ width: `${p.progress}%` }}></div>
-                  </div>
-                  <span className="text-[9px] font-bold">{p.progress}%</span>
-                </div>
-              </td>
-              <td className="px-3 py-2 text-right">
-                {p.status === 'Pending' && (
-                  <button type="button" className="text-primary text-[9px] font-bold hover:underline uppercase tracking-wider focus-visible:ring-2 focus-visible:ring-primary outline-none rounded" aria-label={`Send reminder to ${p.name}`}>Remind</button>
-                )}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
+              <th scope="col" className="px-3 py-2">Participant</th>
+              <th scope="col" className="px-3 py-2">Status</th>
+              <th scope="col" className="px-3 py-2">Last Activity</th>
+              <th scope="col" className="px-3 py-2">Progress</th>
+              <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100 text-[10px]">
+            {[
+              { name: 'Jim Halpert', status: 'Completed', date: 'Mar 12, 2024', progress: 100 },
+              { name: 'Dwight Schrute', status: 'Pending', date: 'Mar 10, 2024', progress: 45 },
+              { name: 'Pam Beesly', status: 'Completed', date: 'Mar 11, 2024', progress: 100 },
+            ].map((p, i) => (
+              <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <th scope="row" className="px-3 py-2 font-bold text-secondary text-left">{p.name}</th>
+                <td className="px-3 py-2">
+                  <span className={cn(
+                    "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
+                    p.status === 'Completed' ? "bg-green-50 text-green-600" : "bg-orange-50 text-orange-600"
+                  )}>{p.status}</span>
+                </td>
+                <td className="px-3 py-2 text-gray-500">{p.date}</td>
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={p.progress} aria-valuemin={0} aria-valuemax={100} aria-label={`${p.name}'s progress`}>
+                      <div className="h-full bg-primary" style={{ width: `${p.progress}%` }}></div>
+                    </div>
+                    <span className="text-[9px] font-bold">{p.progress}%</span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {p.status === 'Pending' && (
+                    <button type="button" className="text-primary text-[9px] font-bold hover:underline uppercase tracking-wider focus-visible:ring-2 focus-visible:ring-primary outline-none rounded" aria-label={`Send reminder to ${p.name}`}>Remind</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 );

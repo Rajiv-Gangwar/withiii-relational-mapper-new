@@ -16,6 +16,9 @@
   body {
     @apply font-sans text-sm text-gray-900 bg-white antialiased;
   }
+  button, select, [role="button"] {
+    @apply cursor-pointer;
+  }
 }
 
 @layer components {
